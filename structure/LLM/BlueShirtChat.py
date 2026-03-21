@@ -3,7 +3,6 @@ from typing import Any
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from LLM.Chatter import Chatter
 
 # 加载 .env 文件中的环境变量
 load_dotenv()
@@ -184,50 +183,5 @@ def chat_with_blueshirt(
     raise RuntimeError("BlueShirt API 调用失败：未知错误")
 
 
-class BlueShirtChat(Chatter):
-    """
-    BlueShirt Chat 模型适配器：
-    - 接口与 Deepseek / Ollama / OpenAIChat 完全一致
-    - 默认模型为 gpt-4o，作为全局默认大模型使用
-    """
-
-    def __init__(
-        self,
-        model: str = "gpt-4o",
-        system_prompt: str = "you are a helpful assistant",
-        stream: bool = False,
-        name: str = "BlueShirtChat",
-        *,
-        max_tokens: int = Chatter.DEFAULT_MAX_TOKENS,
-        temperature: float = Chatter.DEFAULT_TEMPERATURE,
-        top_p: float = Chatter.DEFAULT_TOP_P,
-        num_completions: int = Chatter.DEFUALT_NUM_COMPLETIONS,
-        max_input_chars: int = Chatter.DEFAULT_MAX_INPUT_CHARS,
-    ):
-        super().__init__(
-            model=model,
-            system_prompt=system_prompt,
-            stream=stream,
-            name=name,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            num_completions=num_completions,
-            max_input_chars=max_input_chars,
-        )
-
-    def generate(self, userprompt: str) -> Any:
-        text = chat_with_blueshirt(
-            self.model,
-            self.system_prompt,
-            userprompt,
-            self.stream,
-            max_tokens=self.max_tokens,
-            temperature=self.temperature,
-            top_p=self.top_p,
-            num_completions=self.num_completions,
-            max_input_chars=self.max_input_chars,
-        )
-        return {"role": self.name, "content": text}
 
 

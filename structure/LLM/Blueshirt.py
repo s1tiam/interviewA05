@@ -154,7 +154,6 @@ async def ablueshirt_chat(
                                 for item in content:
                                     if isinstance(item, dict) and item.get('type') == 'text':
                                         prompt_text += item.get('text', '') + "\n"
-                        cost_count(prompt_text, full_response, model)
                     except:
                         pass
 
@@ -239,7 +238,6 @@ async def ablueshirt_chat(
                             for item in content:
                                 if isinstance(item, dict) and item.get('type') == 'text':
                                     prompt_text += item.get('text', '') + "\n"
-                    cost_count(prompt_text, response_content, model)
 
                     elapsed_time = time.time() - start_time
                     logger.info(
@@ -287,62 +285,3 @@ async def ablueshirt_chat(
         logger.error(error_msg, exc_info=True)
         raise
 
-
-@LLMRegistry.register('BlueShirtChat')
-class BlueShirtChat(LLM):
-
-    def __init__(self, model_name: str):
-        self.model_name = model_name
-
-    async def agen(
-            self,
-            messages: List[Message],
-            max_tokens: Optional[int] = None,
-            temperature: Optional[float] = None,
-            num_comps: Optional[int] = None,
-            stream: bool = False,
-            stream_options: Optional[Dict] = None,
-    ) -> Union[List[str], str]:
-
-        if max_tokens is None:
-            max_tokens = self.DEFAULT_MAX_TOKENS
-        if temperature is None:
-            temperature = self.DEFAULT_TEMPERATURE
-        if num_comps is None:
-            num_comps = self.DEFUALT_NUM_COMPLETIONS
-
-        # Convert messages to API format
-        if isinstance(messages, str):
-            messages = [{'role': 'user', 'content': messages}]
-        else:
-            # Convert Message objects to dictionaries
-            msg_list = []
-            for msg in messages:
-                if isinstance(msg, Message):
-                    msg_dict = msg.dict()
-                    msg_list.append(msg_dict)
-                elif isinstance(msg, dict):
-                    msg_list.append(msg)
-                else:
-                    msg_list.append({'role': 'user', 'content': str(msg)})
-            messages = msg_list
-
-        response = await ablueshirt_chat(
-            model=self.model_name,
-            msg=messages,
-            stream=stream,
-            stream_options=stream_options,
-            max_tokens=max_tokens,
-            temperature=temperature
-        )
-
-        return response
-
-    def gen(
-            self,
-            messages: List[Message],
-            max_tokens: Optional[int] = None,
-            temperature: Optional[float] = None,
-            num_comps: Optional[int] = None,
-    ) -> Union[List[str], str]:
-        pass

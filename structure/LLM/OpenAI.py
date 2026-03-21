@@ -1,6 +1,5 @@
 import os
 from openai import OpenAI
-from LLM.Chatter import Chatter
 
 def _truncate_text(text: str, max_chars: int) -> str:
     if max_chars is None or max_chars <= 0:
@@ -46,50 +45,6 @@ def chat_with_openai(
     return response.choices[0].message.content
 
 
-class OpenAIChat(Chatter):
-    """
-    OpenAI Chat 模型适配器，接口风格与 Deepseek / Ollama 一致：
-    - __init__ 暴露 model / system_prompt / stream / name 以及若干可选生成参数
-    - generate() 使用这些参数限制生成
-    """
 
-    def __init__(
-        self,
-        model: str = "gpt-4.1-mini",
-        system_prompt: str = "you are a helpful assistant",
-        stream: bool = False,
-        name: str = "OpenAIChat",
-        *,
-        max_tokens: int = Chatter.DEFAULT_MAX_TOKENS,
-        temperature: float = Chatter.DEFAULT_TEMPERATURE,
-        top_p: float = Chatter.DEFAULT_TOP_P,
-        num_completions: int = Chatter.DEFUALT_NUM_COMPLETIONS,
-        max_input_chars: int = Chatter.DEFAULT_MAX_INPUT_CHARS,
-    ):
-        super().__init__(
-            model=model,
-            system_prompt=system_prompt,
-            stream=stream,
-            name=name,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            num_completions=num_completions,
-            max_input_chars=max_input_chars,
-        )
-
-    def generate(self, userprompt: str):
-        response = chat_with_openai(
-            self.model,
-            self.system_prompt,
-            userprompt,
-            self.stream,
-            max_tokens=self.max_tokens,
-            temperature=self.temperature,
-            top_p=self.top_p,
-            num_completions=self.num_completions,
-            max_input_chars=self.max_input_chars,
-        )
-        return {"role": self.name, "content": response}
 
 

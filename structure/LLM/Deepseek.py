@@ -18,7 +18,7 @@ def _truncate_text(text: str, max_chars: int) -> str:
     return text if len(text) <= max_chars else text[-max_chars:]
 
 
-def chatwith(
+def chat_with_deepseek(
     userprompt: str,
     systemprompt: str = "you are a helpful assistant",
     *,
@@ -85,28 +85,4 @@ def chatwith(
     return content
 
 
-# 保留旧函数名，避免外部调用断裂
-def chatwithdeepseek(
-    model: str,
-    systemprompt: str,
-    userprompt: str,
-    stream: bool = False,
-    *,
-    max_tokens: int,
-    temperature: float,
-    top_p: float,
-    num_completions: int,
-    max_input_chars: int,
-) -> str:
-    return chatwith(
-        userprompt=userprompt,
-        systemprompt=systemprompt,
-        model=model,
-        stream=stream,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        top_p=top_p,
-        num_completions=num_completions,
-        max_input_chars=max_input_chars,
-    )
 
