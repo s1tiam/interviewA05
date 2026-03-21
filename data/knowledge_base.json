@@ -1,0 +1,80 @@
+{
+  "java-backend": {
+    "core_tech": [
+      "Java SE/EE",
+      "Spring Boot/Spring Cloud",
+      "MyBatis/Hibernate",
+      "MySQL/PostgreSQL",
+      "Redis/MongoDB",
+      "Docker/Kubernetes",
+      "微服务架构",
+      "分布式系统"
+    ],
+    "common_topics": [
+      "Java基础（集合、多线程、IO）",
+      "Spring框架原理",
+      "数据库设计与优化",
+      "高并发处理",
+      "分布式事务",
+      "系统架构设计",
+      "性能优化",
+      "安全性"
+    ],
+    "excellent_answers": [
+      {
+        "question": "请解释一下Java中的多线程机制？",
+        "answer": "Java中的多线程机制是指在一个程序中同时运行多个线程的能力。Java通过Thread类和Runnable接口来实现多线程。线程的生命周期包括新建、就绪、运行、阻塞和死亡五个状态。\n\n在Java中创建线程有两种方式：继承Thread类并重写run()方法，或者实现Runnable接口并实现run()方法，然后将其传递给Thread构造器。\n\n为了提高性能，Java提供了线程池机制，通过Executors框架可以创建不同类型的线程池，如固定大小线程池、缓存线程池等。\n\n线程安全是多线程编程中的重要问题，可以通过synchronized关键字、Lock接口、volatile关键字等方式来保证线程安全。\n\n此外，Java 5引入了并发包（java.util.concurrent），提供了更多高级的并发工具，如CountDownLatch、CyclicBarrier、Semaphore等，以及并发集合类，如ConcurrentHashMap、CopyOnWriteArrayList等。"
+      },
+      {
+        "question": "如何设计一个高并发的系统？",
+        "answer": "设计高并发系统需要从多个层面考虑：\n\n1. 系统架构层面：采用微服务架构，将系统拆分为多个独立的服务，降低单个服务的负载。使用负载均衡器分发请求，如Nginx、LVS等。\n\n2. 数据库层面：使用主从复制、读写分离，减轻主库压力。合理设计数据库索引，优化SQL查询。考虑使用NoSQL数据库，如Redis、MongoDB等，处理非关系型数据。\n\n3. 缓存层面：使用多级缓存策略，如本地缓存（Caffeine）、分布式缓存（Redis），减少数据库访问。\n\n4. 代码层面：使用并发编程技术，如线程池、异步处理。避免锁竞争，使用无锁数据结构。优化算法和数据结构，减少时间复杂度。\n\n5. 部署层面：使用容器化技术（Docker）和编排工具（Kubernetes），实现弹性伸缩。使用CDN加速静态资源访问。\n\n6. 监控层面：建立完善的监控系统，实时监控系统状态和性能指标，及时发现和解决问题。\n\n通过以上措施，可以显著提高系统的并发处理能力，保证系统的稳定性和可靠性。"
+      }
+    ],
+    "evaluation_criteria": {
+      "technical_knowledge": "技术知识掌握程度，包括Java基础、框架使用、数据库知识等",
+      "problem_solving": "问题解决能力，包括分析问题、设计解决方案的能力",
+      "system_design": "系统设计能力，包括架构设计、性能优化等",
+      "coding_ability": "编码能力，包括代码质量、代码风格等",
+      "communication": "沟通能力，包括表达清晰、逻辑连贯等"
+    }
+  },
+  "web-frontend": {
+    "core_tech": [
+      "HTML5/CSS3/JavaScript",
+      "React/Vue/Angular",
+      "TypeScript",
+      "Webpack/Vite",
+      "CSS预处理器（Sass/Less）",
+      "响应式设计",
+      "前端工程化",
+      "浏览器API"
+    ],
+    "common_topics": [
+      "前端框架原理",
+      "CSS布局技术",
+      "前端性能优化",
+      "前端安全",
+      "浏览器渲染原理",
+      "前端工程化工具",
+      "TypeScript使用",
+      "PWA（渐进式Web应用）"
+    ],
+    "excellent_answers": [
+      {
+        "question": "请解释一下React中的虚拟DOM？",
+        "answer": "React中的虚拟DOM是一个轻量级的JavaScript对象，用于表示真实DOM的结构和属性。它是React性能优化的核心机制之一。\n\n当组件状态发生变化时，React会首先更新虚拟DOM，然后通过Diffing算法比较新旧虚拟DOM树的差异，最后只更新真实DOM中发生变化的部分，而不是重新渲染整个DOM树。\n\n虚拟DOM的优点包括：\n1. 减少了直接操作DOM的次数，提高了性能\n2. 使跨平台渲染成为可能（如React Native）\n3. 简化了组件的状态管理和更新逻辑\n\nReact 16引入了Fiber架构，进一步优化了虚拟DOM的更新过程，实现了增量渲染和时间切片，提高了大型应用的性能。"
+      },
+      {
+        "question": "如何优化前端性能？",
+        "answer": "前端性能优化可以从多个方面入手：\n\n1. 资源加载优化：\n   - 压缩CSS、JavaScript和图片文件\n   - 使用CDN加速静态资源访问\n   - 实现资源的懒加载和按需加载\n   - 使用HTTP/2和HTTP/3协议\n   - 配置适当的缓存策略\n\n2. 渲染性能优化：\n   - 减少DOM节点数量\n   - 避免重排和重绘\n   - 使用CSS硬件加速\n   - 优化CSS选择器\n   - 使用虚拟列表处理长列表\n\n3. JavaScript执行优化：\n   - 减少DOM操作\n   - 使用事件委托\n   - 避免内存泄漏\n   - 优化循环和算法\n   - 使用Web Workers处理耗时操作\n\n4. 代码优化：\n   - 模块化和代码分割\n   - 减少第三方库的使用\n   - 使用Tree Shaking移除未使用的代码\n   - 优化打包配置\n\n5. 用户体验优化：\n   - 实现骨架屏\n   - 提供加载状态反馈\n   - 优化首屏加载时间\n   - 确保页面响应迅速\n\n通过以上优化措施，可以显著提高前端应用的性能，提升用户体验。"
+      }
+    ],
+    "evaluation_criteria": {
+      "technical_knowledge": "技术知识掌握程度，包括前端基础、框架使用、性能优化等",
+      "coding_ability": "编码能力，包括代码质量、代码风格、可维护性等",
+      "user_experience": "用户体验设计能力，包括界面设计、交互设计等",
+      "problem_solving": "问题解决能力，包括分析问题、设计解决方案的能力",
+      "communication": "沟通能力，包括表达清晰、逻辑连贯等"
+    }
+  }
+}

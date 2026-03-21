@@ -1,0 +1,162 @@
+{
+  "java-backend": {
+    "technical": [
+      {
+        "id": "java-1",
+        "question": "请解释一下Java中的多线程机制？",
+        "type": "技术知识",
+        "difficulty": "medium",
+        "keywords": ["多线程", "线程池", "并发"],
+        "follow_up": ["线程的生命周期是什么？", "如何避免线程安全问题？"]
+      },
+      {
+        "id": "java-2",
+        "question": "Spring Boot的核心特性有哪些？",
+        "type": "技术知识",
+        "difficulty": "medium",
+        "keywords": ["Spring Boot", "自动配置", " starters"],
+        "follow_up": ["Spring Boot与Spring MVC的区别？", "如何自定义Spring Boot配置？"]
+      },
+      {
+        "id": "java-3",
+        "question": "如何设计一个高并发的系统？",
+        "type": "场景题",
+        "difficulty": "hard",
+        "keywords": ["高并发", "系统设计", "性能优化"],
+        "follow_up": ["如何处理分布式事务？", "缓存策略如何设计？"]
+      },
+      {
+        "id": "java-4",
+        "question": "数据库索引的工作原理是什么？",
+        "type": "技术知识",
+        "difficulty": "medium",
+        "keywords": ["数据库", "索引", "B+树"],
+        "follow_up": ["如何优化SQL查询？", "什么情况下索引会失效？"]
+      },
+      {
+        "id": "java-5",
+        "question": "请解释一下JVM的内存模型？",
+        "type": "技术知识",
+        "difficulty": "hard",
+        "keywords": ["JVM", "内存模型", "垃圾回收"],
+        "follow_up": ["垃圾回收算法有哪些？", "如何调优JVM参数？"]
+      }
+    ],
+    "project": [
+      {
+        "id": "java-project-1",
+        "question": "请描述一个你参与过的最复杂的项目，你在其中扮演了什么角色？",
+        "type": "项目经历",
+        "difficulty": "medium",
+        "keywords": ["项目经验", "角色", "复杂度"],
+        "follow_up": ["项目中遇到的最大挑战是什么？", "你是如何解决的？"]
+      },
+      {
+        "id": "java-project-2",
+        "question": "你在项目中如何保证代码质量？",
+        "type": "项目经历",
+        "difficulty": "medium",
+        "keywords": ["代码质量", "测试", "代码审查"],
+        "follow_up": ["你使用过哪些代码质量工具？", "如何处理代码中的技术债务？"]
+      }
+    ],
+    "behavioral": [
+      {
+        "id": "java-behavioral-1",
+        "question": "当你与团队成员意见不一致时，你会如何处理？",
+        "type": "行为题",
+        "difficulty": "easy",
+        "keywords": ["团队合作", "沟通", "冲突解决"],
+        "follow_up": ["举一个具体的例子说明？", "最终结果如何？"]
+      },
+      {
+        "id": "java-behavioral-2",
+        "question": "你如何面对工作压力？",
+        "type": "行为题",
+        "difficulty": "easy",
+        "keywords": ["压力管理", "时间管理", "应对策略"],
+        "follow_up": ["在过去的工作中，你遇到过哪些压力？", "你是如何应对的？"]
+      }
+    ]
+  },
+  "web-frontend": {
+    "technical": [
+      {
+        "id": "frontend-1",
+        "question": "请解释一下React中的虚拟DOM？",
+        "type": "技术知识",
+        "difficulty": "medium",
+        "keywords": ["React", "虚拟DOM", "性能优化"],
+        "follow_up": ["虚拟DOM如何提高性能？", "React 18的新特性有哪些？"]
+      },
+      {
+        "id": "frontend-2",
+        "question": "CSS Flexbox和Grid的区别是什么？",
+        "type": "技术知识",
+        "difficulty": "easy",
+        "keywords": ["CSS", "Flexbox", "Grid"],
+        "follow_up": ["什么场景下使用Flexbox？什么场景下使用Grid？", "如何实现响应式布局？"]
+      },
+      {
+        "id": "frontend-3",
+        "question": "如何优化前端性能？",
+        "type": "场景题",
+        "difficulty": "medium",
+        "keywords": ["性能优化", "前端", "加载速度"],
+        "follow_up": ["如何减少首屏加载时间？", "如何优化JavaScript执行效率？"]
+      },
+      {
+        "id": "frontend-4",
+        "question": "前端安全防护措施有哪些？",
+        "type": "技术知识",
+        "difficulty": "medium",
+        "keywords": ["前端安全", "XSS", "CSRF"],
+        "follow_up": ["如何防止XSS攻击？", "如何防止CSRF攻击？"]
+      },
+      {
+        "id": "frontend-5",
+        "question": "请解释一下浏览器的渲染过程？",
+        "type": "技术知识",
+        "difficulty": "medium",
+        "keywords": ["浏览器", "渲染", "DOM"],
+        "follow_up": ["重排和重绘的区别是什么？", "如何减少重排和重绘？"]
+      }
+    ],
+    "project": [
+      {
+        "id": "frontend-project-1",
+        "question": "请描述一个你参与过的前端项目，你在其中遇到了哪些挑战？",
+        "type": "项目经历",
+        "difficulty": "medium",
+        "keywords": ["项目经验", "挑战", "解决方案"],
+        "follow_up": ["你是如何解决这些挑战的？", "项目的最终效果如何？"]
+      },
+      {
+        "id": "frontend-project-2",
+        "question": "你在项目中如何保证代码的可维护性？",
+        "type": "项目经历",
+        "difficulty": "medium",
+        "keywords": ["代码可维护性", "代码规范", "模块化"],
+        "follow_up": ["你使用过哪些前端工程化工具？", "如何组织前端项目结构？"]
+      }
+    ],
+    "behavioral": [
+      {
+        "id": "frontend-behavioral-1",
+        "question": "当你遇到一个技术难题时，你会如何解决？",
+        "type": "行为题",
+        "difficulty": "easy",
+        "keywords": ["问题解决", "学习能力", "资源利用"],
+        "follow_up": ["举一个具体的例子说明？", "你从中学到了什么？"]
+      },
+      {
+        "id": "frontend-behavioral-2",
+        "question": "你如何跟上前端技术的快速发展？",
+        "type": "行为题",
+        "difficulty": "easy",
+        "keywords": ["技术学习", "自我提升", "持续学习"],
+        "follow_up": ["你平时通过哪些渠道学习新技术？", "最近学习了哪些前端新技术？"]
+      }
+    ]
+  }
+}
