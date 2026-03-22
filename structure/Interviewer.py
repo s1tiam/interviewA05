@@ -126,7 +126,7 @@ class Interviewer:
         prompt = f"""
             你是一位专业的面试官，现在你面对着一个面试{self.targetjob}的面试者。
             交流历史:{history_text}
-            请根据上下文内容,以关键词形式给出你将要向考察者提问的问题/知识点/关键点。
+            请根据上下文内容,以关键词形式给出你将要向考察者提问的问题的知识点/关键点，仅给出几个词，不要整个句子。
             只允许使用以下格式输出你的查询意图:
             </keyword>词1,词2,词3</keyword>
             "请严格按 </keyword>...</keyword> 返回，不要输出额外解释。"
@@ -404,7 +404,7 @@ class Interviewer:
 
     def execute_all(self):
         self.reader("请你介绍一下自己。")
-        self.get_sound(
+        self._last_answer_audio=self.get_sound(
             output_dir=DEFAULT_RECORDS_DIR,
             filename_prefix="answer",
             silence_threshold_db=-40.0,
@@ -412,6 +412,11 @@ class Interviewer:
             output_format="wav",
         )
         """获取用户回答。"""
+        """将【回答内容】和【专业性/清晰性报告】写入上下文context"""
+        self.senmantic_analysis()
+        print("语义分析完成")
+        """将【回答的情感倾向】写入上下文context"""
+        self.emotional_analysis()
         for i in range(0,2):
             self.new_round()
             #进行固定5轮的提问。
