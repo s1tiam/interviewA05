@@ -11,6 +11,7 @@ from .reader import read_aloud
 from .stt_whisper import WhisperSTT
 from .audio_recorder import is_round_finished as audio_round_finished
 from .audio_recorder import record_until_silence
+from .Emotion.EmotionEvaluator import EmotionEvaluator
 
 class Interviewer:
     """
@@ -42,7 +43,7 @@ class Interviewer:
 
         self.semantic = semantic_evaluator
         """2部分工具：语音转字符串"""
-        self.emotion = emotion_evaluator
+        self.emotion = emotion_evaluator if emotion_evaluator is not None else EmotionEvaluator()
         """3部分工具：语义分析，产生[本问题的]情感分析报告"""
 
         self.rag_retriever = rag_retriever
@@ -200,9 +201,40 @@ class Interviewer:
         )
         print("转译内容:",text)
 
-    def emotional_analysis(self):
-        #TODO:分析用户原声中的情感倾向（#3内容）
-        pass
+    def emotional_analysis(self) -> None:
+        """
+        分析用户原声中的情感倾向（#3内容）
+        - 从context中获取语义分析结果中的转录文本
+        - 使用EmotionEvaluator分析音频的情感特征
+        - 将分析结果写入context
+        """
+        path = self._last_answer_audio
+        if not path:
+            return
+        p = Path(path)
+        if not p.is_file():
+            return
+        
+        # 从context中获取转录文本
+        transcript = ""
+        for item in reversed(self.context):
+            if item.get('role') == 'semantic analyser' and isinstance(item.get('content'), dict):
+                transcript = item.get('content', {}).get('transcript', '') or ""
+                break
+        
+        # 使用EmotionEvaluator分析情感
+        emotion_result = self.emotion.evaluate(str(p), transcript)
+        
+        # 将情感分析结果写入context
+        if not isinstance(self.context, list):
+            self.context = []
+        self.context.append(
+            {
+                "role": "emotional analyser",
+                "content": emotion_result
+            }
+        )
+        print("情感分析结果:", emotion_result)
 
     def reader(self, question: str) -> None:
         """Windows 下朗读文本（系统 TTS，见 tts_windows.read_aloud）。"""
@@ -388,4 +420,3 @@ class Interviewer:
 
         self.build_final_report(DEFAULT_FINAL_REPORT_PATH)
         
-
