@@ -380,6 +380,10 @@ class Interviewer:
             output_format="wav",
         )
         """获取用户回答。"""
+        """将【回答内容】和【专业性/清晰性报告】写入上下文context"""
+        self.senmantic_analysis()
+        """将【回答的情感倾向】写入上下文context"""
+        self.emotional_analysis()
         for i in range(0,2):
             self.new_round()
             #进行固定5轮的提问。
