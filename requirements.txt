@@ -1,16 +1,40 @@
-# 面试结构 / 交互
-# pip install -r requirements.txt
+# interviewA05 — structure/ 面试引擎
+# 安装: pip install -r requirements.txt
+#
+# 说明：
+# - CosyVoice/ 为独立子项目，勿与本文件混装；需单独环境与文档。
+# - 非 wav 的音频转写可安装 ffmpeg 并加入 PATH（见 structure/stt_whisper.py 注释）。
 
-# 从项目根 .env 加载 DEEPSEEK_API_KEY 等（import structure.paths 时自动执行）
+# ---------------------------------------------------------------------------
+# 环境与密钥（import structure.paths 时会加载项目根 .env）
+# ---------------------------------------------------------------------------
 python-dotenv>=1.0.0
 
-# Windows 文本朗读（reader）
+# ---------------------------------------------------------------------------
+# LLM（默认后端 deepseek，使用 OpenAI 兼容 HTTP API）
+# ---------------------------------------------------------------------------
+openai>=1.40.0
+
+# 可选：--llm-backend ollama 时使用本地 Ollama
+# ollama>=0.3.0
+
+# 可选：structure/LLM/Blueshirt.py 异步调用 BlueShirt API
+# aiohttp>=3.9.0
+# tenacity>=8.2.0
+
+# ---------------------------------------------------------------------------
+# TTS：Windows 系统语音（structure/reader.py）
+# ---------------------------------------------------------------------------
 pyttsx3>=2.90
 
-# 录音（audio_recorder）+ Whisper 读 wav（无 ffmpeg 时必需）
-sounddevice
-soundfile
-numpy
+# ---------------------------------------------------------------------------
+# 录音与写 wav；Whisper 在 Windows 无 ffmpeg 时用 soundfile 读 wav/flac/ogg
+# ---------------------------------------------------------------------------
+sounddevice>=0.4.6
+soundfile>=0.12.0
+numpy>=1.22,<3
 
-# #2 语音转文字（Whisper，体积较大，首次运行会下载模型）
+# ---------------------------------------------------------------------------
+# ASR：OpenAI Whisper 本地推理（首次运行会下载模型，体积较大）
+# ---------------------------------------------------------------------------
 openai-whisper>=20231117
