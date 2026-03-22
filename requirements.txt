@@ -1,0 +1,16 @@
+# 面试结构 / 交互
+# pip install -r requirements.txt
+
+# 从项目根 .env 加载 DEEPSEEK_API_KEY 等（import structure.paths 时自动执行）
+python-dotenv>=1.0.0
+
+# Windows 文本朗读（reader）
+pyttsx3>=2.90
+
+# 录音（audio_recorder）+ Whisper 读 wav（无 ffmpeg 时必需）
+sounddevice
+soundfile
+numpy
+
+# #2 语音转文字（Whisper，体积较大，首次运行会下载模型）
+openai-whisper>=20231117
