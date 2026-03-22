@@ -38,3 +38,15 @@ numpy>=1.22,<3
 # ASR：OpenAI Whisper 本地推理（首次运行会下载模型，体积较大）
 # ---------------------------------------------------------------------------
 openai-whisper>=20231117
+
+# ---------------------------------------------------------------------------
+# 可选：FunASR（structure/Semantic/RecordToText.py 中 run_funasr）
+# 需与 PyTorch 版本匹配，建议按官网选择 CPU/CUDA：
+#   https://pytorch.org/get-started/locally/
+# 示例（CPU）：
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+#   pip install funasr
+# ---------------------------------------------------------------------------
+# torch>=2.0.0
+# torchaudio>=2.0.0
+# funasr>=1.0.0

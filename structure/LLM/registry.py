@@ -11,17 +11,17 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
 
 from .Deepseek import chat_with_deepseek, DEFAULT_MAX_INPUT_CHARS as DS_MAX_IN
-from .Deepseek import DEFAULT_MAX_TOKENS as DS_MAX_TOK
+
 from .Deepseek import DEFAULT_TEMPERATURE as DS_TEMP
 from .Deepseek import DEFAULT_TOP_P as DS_TOP_P
 from .Ollama import DEFAULT_MAX_INPUT_CHARS as OL_MAX_IN
-from .Ollama import DEFAULT_MAX_TOKENS as OL_MAX_TOK
+
 from .Ollama import DEFAULT_TEMPERATURE as OL_TEMP
 from .Ollama import DEFAULT_TOP_P as OL_TOP_P
 from .Ollama import chat_with_ollama
 
 # OpenAI 模块无统一 DEFAULT_* 导出，在此写默认值
-_OA_MAX_TOK = 2000
+
 _OA_TEMP = 0.3
 _OA_TOP = 0.95
 _OA_MAX_IN = 12000
@@ -56,7 +56,6 @@ def _call_openai(model: str, system: str, user: str, **kw: Any) -> str:
         system,
         user,
         False,
-        max_tokens=int(kw.get("max_tokens", _OA_MAX_TOK)),
         temperature=float(kw.get("temperature", _OA_TEMP)),
         top_p=float(kw.get("top_p", _OA_TOP)),
         num_completions=int(kw.get("num_completions", 1)),
@@ -95,7 +94,6 @@ class LLMClient:
                 self.system_prompt,
                 user,
                 False,
-                max_tokens=int(self.extra.get("max_tokens", OL_MAX_TOK)),
                 temperature=float(self.extra.get("temperature", OL_TEMP)),
                 top_p=float(self.extra.get("top_p", OL_TOP_P)),
                 num_completions=int(self.extra.get("num_completions", 1)),
@@ -116,7 +114,6 @@ class LLMClient:
                 systemprompt=self.system_prompt,
                 model=self.model or DEFAULT_MODELS["deepseek"],
                 stream=False,
-                max_tokens=int(self.extra.get("max_tokens", DS_MAX_TOK)),
                 temperature=float(self.extra.get("temperature", DS_TEMP)),
                 top_p=float(self.extra.get("top_p", DS_TOP_P)),
                 num_completions=int(self.extra.get("num_completions", 1)),

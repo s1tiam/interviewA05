@@ -35,7 +35,6 @@ def chat_with_openai(
             {"role": "user", "content": userprompt},
         ],
         stream=stream,
-        max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
         n=num_completions,

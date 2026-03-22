@@ -1,6 +1,26 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
+import pathlib
+from contextlib import contextmanager
+from contextlib import redirect_stderr
+from contextlib import redirect_stdout
+
+# ============ 1. 首先设置 FFmpeg 路径（必须在导入 funasr 之前） ============
+# 获取当前脚本所在目录
+script_dir = pathlib.Path(__file__).parent.resolve()
+
+# 在脚本目录下创建 ffmpeg 文件夹
+ffmpeg_dir = script_dir / "ffmpeg"
+ffmpeg_bin = ffmpeg_dir / "bin"
+
+# 检查 FFmpeg 是否存在，如果不存在则自动下载
+
+# 将 FFmpeg 路径添加到当前进程的 PATH（必须在导入 funasr 之前）
+os.environ['PATH'] = str(ffmpeg_bin) + os.pathsep + os.environ.get('PATH', '')
+
+# ============ 2. 现在再导入其他模块 ============
+from funasr import AutoModel
 
 current_file_dir = os.path.dirname(os.path.abspath(__file__))
 structure_dir = os.path.dirname(current_file_dir)
@@ -9,13 +29,13 @@ project_root = os.path.dirname(structure_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-import json
-import logging
 from structure.LLM.Deepseek import chat_with_deepseek
 from dotenv import load_dotenv
 
 load_dotenv()
-# /usr/bin/env python "e:\InterviewA05\structure\Semantic\RecordToText.py"
+
+# ... 后续代码保持不变 ...
+# 运行示例: python structure/Semantic/RecordToText.py
 WSPrompt = (
     """你是一位专业的AI面试官评估专家。请根据候选人的回答，从以下四个维度进行量化评分（每个维度满分100分），并输出纯字符串结果。
 
@@ -65,78 +85,102 @@ WSPrompt = (
 """
 )
 
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
-
 _asr_model_cache = {}
 
-def run_funasr(wav_path, model='paraformer-zh'):
-    try:
-        from funasr import AutoModel
-    except ImportError:
-        raise ImportError("请先安装 funasr 包: pip install funasr")
 
-    if not os.path.isfile(wav_path) or os.path.getsize(wav_path) == 0:
-        logging.error(f"音频文件无效: {wav_path}")
-        return ""
+@contextmanager
+def _mute_funasr_io():
+    """
+    屏蔽 FunASR / ModelScope / torchaudio / tqdm 等写入终端的提示、进度条与日志。
+    使用独立 devnull，避免 stdout/stderr 指向同一对象导致行为异常。
+    """
+    with open(os.devnull, "w", encoding="utf-8", errors="replace") as out, open(
+        os.devnull, "w", encoding="utf-8", errors="replace"
+    ) as err:
+        with redirect_stdout(out), redirect_stderr(err):
+            yield
+
+
+def run_funasr(wav_path, model='paraformer-zh'):
+
+    try:
+        # 首次 import 时也会打印 ffmpeg/torchaudio 提示，一并静音
+        with _mute_funasr_io():
+            from funasr import AutoModel
+    except ModuleNotFoundError as e:
+        name = getattr(e, "name", "") or ""
+        msg = str(e).lower()
+        if name == "torchaudio" or "torchaudio" in msg:
+            raise ImportError(
+                "FunASR 依赖 torchaudio：请先安装与 PyTorch 版本匹配的 torch / torchaudio。\n"
+                "  CPU 示例：pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu\n"
+                "  再执行：pip install funasr\n"
+                "  说明：https://pytorch.org/get-started/locally/"
+            ) from e
+        if name == "funasr" or "funasr" in msg:
+            raise ImportError("请先安装 FunASR：pip install funasr") from e
+        raise ImportError(f"缺少依赖: {e}。若使用 FunASR，请安装 funasr 及其依赖（含 torchaudio）。") from e
+    except ImportError as e:
+        raise ImportError("请先安装 funasr 包: pip install funasr") from e
 
     if model not in _asr_model_cache:
-        logging.info(f"加载ASR模型: {model}")
         try:
-            _asr_model_cache[model] = AutoModel(model=model)
-        except Exception as e:
-            logging.error(f"模型加载失败: {e}")
+            with _mute_funasr_io():
+                # disable_update：跳过联网检查版本；log_level：降低 logging.basicConfig 输出
+                try:
+                    _asr_model_cache[model] = AutoModel(
+                        model=model,
+                        disable_update=True,
+                        log_level="CRITICAL",
+                    )
+                except TypeError:
+                    _asr_model_cache[model] = AutoModel(
+                        model=model,
+                        disable_update=True,
+                    )
+        except Exception:
             return ""
     asr_model = _asr_model_cache[model]
 
     try:
-        result = asr_model.generate(input=wav_path)
+        with _mute_funasr_io():
+            result = asr_model.generate(input=wav_path)
         text = ''
         if isinstance(result, list) and len(result) > 0:
             text = result[0].get('text', '')
         elif isinstance(result, dict):
             text = result.get('text', '')
-        else:
-            logging.warning(f"ASR结果格式异常: {result}")
-        if not text:
-            logging.warning(f"ASR未识别出文本: {wav_path}")
         return text
-    except Exception as e:
-        logging.error(f"ASR识别异常: {e}")
+    except Exception:
         return ""
 
 def build_wait_send_text(WSPrompt, question, user_ans, true_qa_ans=None):
-    parts = [WSPrompt, question, user_ans]
-    if true_qa_ans:
-        parts.append(true_qa_ans)
-    return "\n\n".join(parts)
+    """将 WSPrompt 中的 {question}/{answer}/{true_qa_ans} 占位符替换为实际内容。"""
+    tqa = true_qa_ans if true_qa_ans is not None else ""
+    return WSPrompt.format(question=question, answer=user_ans, true_qa_ans=tqa)
 
 def SemanticAnalysis(wav_path, question, true_qa_ans=None):
     user_ans = run_funasr(wav_path)
-    logging.info(f"ASR识别结果: {user_ans}")
-    
+
     wait_send_text = build_wait_send_text(WSPrompt, question, user_ans, true_qa_ans)
-    logging.info(f"待发送文本长度: {len(wait_send_text)}")
-    
+
     system_prompt = """你是面试评估专家，请严格按照以下格式输出评分结果，必须包含所有四项：
 
-内容相关性: score1: [0-100的整数]
-结构清晰性: score2: [0-100的整数]
-完整性: score3: [0-100的整数]
-语言专业性: score4: [0-100的整数]
-
-然后为每项提供简要说明，最后给出一句话总结。
-
-权重配置：
-- 内容相关性权重: 0.3
-- 结构清晰性权重: 0.2
-- 完整性权重: 0.25
-- 语言专业性权重: 0.25"""
+    内容相关性: score1: [0-100的整数]
+    结构清晰性: score2: [0-100的整数]
+    完整性: score3: [0-100的整数]
+    语言专业性: score4: [0-100的整数]
+    
+    然后为每项提供简要说明，最后给出一句话总结。
+    
+    权重配置：
+    - 内容相关性权重: 0.3
+    - 结构清晰性权重: 0.2
+    - 完整性权重: 0.25
+    - 语言专业性权重: 0.25"""
     try:
         response = chat_with_deepseek(wait_send_text, system_prompt)
-        logging.info(f"DeepSeek响应长度: {len(response)}")
-        logging.info(f"DeepSeek响应内容: {response[:200]}")
-    except Exception as e:
-        logging.error(f"DeepSeek API调用失败: {e}")
+    except Exception:
         response = ""
     
     # 权重配置（可直接修改）
@@ -176,15 +220,15 @@ def SemanticAnalysis(wav_path, question, true_qa_ans=None):
     if all(v is not None for v in scores.values()):
         weighted_sum = sum(scores[key] * weights[key] for key in scores.keys())
         score = round(weighted_sum)
-        logging.info(f"四项得分: {scores}, 权重: {weights}, 综合得分: {score}")
-    else:
-        logging.warning(f"未能解析所有得分: {scores}")
-    result = {"Question": question, "Recording": user_ans, "text": response, "score": score}
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    return result
+    result={"role":"interviewee","content":user_ans}
+    result2={"role":"semantic analyst","content":response,"score":score}
+    print(result)
+    print(result2)
 
-if __name__ == "__main__":
-    wav_path = r"data\records\answer_20260322_144715.wav"
-    question = "请介绍一下你报考我校计算机专业的最大优势。"
-    true_qa_ans = "我是某大学应届毕业生，主修某某专业。"
-    SemanticAnalysis(wav_path, question, true_qa_ans)
+    return result,result2
+
+if __name__=="__main__":
+    path=r"""E:\D\interviewA05\data\records\tst_20260322_224553.wav"""
+    ans1,ans2=SemanticAnalysis(path,"简单介绍一下自己。")
+    print(ans1)
+    print(ans2)

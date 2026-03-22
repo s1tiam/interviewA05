@@ -8,12 +8,6 @@ from openai import OpenAI
 load_dotenv()
 
 
-def _truncate_text(text: str, max_chars: int) -> str:
-    if max_chars is None or max_chars <= 0:
-        return text or ""
-    if text is None:
-        return ""
-    return text if len(text) <= max_chars else text[-max_chars:]
 
 
 def chat_with_blueshirt(
@@ -22,7 +16,6 @@ def chat_with_blueshirt(
     userprompt: str,
     stream: bool,
     *,
-    max_tokens: int,
     temperature: float,
     top_p: float,
     num_completions: int,
@@ -61,9 +54,6 @@ def chat_with_blueshirt(
         timeout=httpx.Timeout(timeout, connect=30.0),  # 连接超时30秒，总超时120秒
     )
 
-    systemprompt = _truncate_text(systemprompt, max_input_chars)
-    userprompt = _truncate_text(userprompt, max_input_chars)
-
     # 重试机制
     max_retries = int(os.environ.get("BLUESHIRT_MAX_RETRIES", "2"))
     retry_delay = float(os.environ.get("BLUESHIRT_RETRY_DELAY", "2.0"))
@@ -83,7 +73,6 @@ def chat_with_blueshirt(
                         {"role": "user", "content": userprompt},
                     ],
                     stream=True,
-                    max_tokens=max_tokens,
                     temperature=temperature,
                     top_p=top_p,
                 )
@@ -106,7 +95,6 @@ def chat_with_blueshirt(
                         {"role": "user", "content": userprompt},
                     ],
                     stream=False,
-                    max_tokens=max_tokens,
                     temperature=temperature,
                     top_p=top_p,
                     n=num_completions,

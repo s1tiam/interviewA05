@@ -11,7 +11,7 @@ from .reader import read_aloud
 from .stt_whisper import WhisperSTT
 from .audio_recorder import is_round_finished as audio_round_finished
 from .audio_recorder import record_until_silence
-
+from structure.Semantic.RecordToText import SemanticAnalysis
 class Interviewer:
     """
     第4部分：结构驱动器（interviewer）
@@ -61,7 +61,14 @@ class Interviewer:
         self.rag_top_k = rag_top_k
         """rag所用的topk的k值"""
         self.context=[]
-        """历史累计，每处理一轮会往里面放放。"""
+        """历史累计，每处理一轮会往里面放放。
+        {"role":"RAGdriver","content":{"keywords":[keywords]}}
+        {"role":"RAGSearcher","content":{}}
+        {"role":"question generator","content":{"question": question, "answer": answer}}
+        {"role":"interviewee","content":interviewee's answer}
+        {"role":"semantic analyst","content":"semantic analyse"}
+        {"role":"emotional analyst","content":"emotional analyse"}
+        """
         self._last_answer_audio: str | None = None
         """上一轮用户回答录音路径（供 STT / 情感分析使用）"""
         ensure_data_dirs()
@@ -94,11 +101,11 @@ class Interviewer:
         - 更早轮次：仅内容与情感分析
         """
         if not isinstance(self.context, list) or not self.context:
-            return "【近2轮详细结果】\n- （无）\n【更早轮次(仅内容+情感分析)】\n- （无）"
+            return "【近1轮详细结果】\n- （无）\n【更早轮次(仅内容+情感分析)】\n- （无）"
 
-        recent_detailed = self.context[-2:]
+        recent_detailed = self.context[-1:]
         earlier_filtered = [
-            item for item in self.context[:-2] if item.get("role") in {"interviewee", "emotional analyser"}
+            item for item in self.context[:-1] if item.get("role") in {"interviewee"}
         ]
 
         def _format_context_block(items: list[dict], title: str) -> str:
@@ -110,8 +117,8 @@ class Interviewer:
                 lines.append(f"  content: {item.get('content', '')}")
             return "\n".join(lines)
 
-        recent_text = _format_context_block(recent_detailed, "【近2轮详细结果】")
-        earlier_text = _format_context_block(earlier_filtered, "【更早轮次(仅内容+情感分析)】")
+        recent_text = _format_context_block(recent_detailed, "【近1轮详细结果】")
+        earlier_text = _format_context_block(earlier_filtered, "【更早轮次(仅内容)】")
         return f"{recent_text}\n{earlier_text}"
 
     def build_keyword(
@@ -139,30 +146,28 @@ class Interviewer:
         parts = re.split(r"[,\n;；、]+", body)
         keywords = [p.strip() for p in parts if p.strip()]
         keywords = keywords[: self.rag_top_k * 2]
-
         self.context.append({"role": "keyword generator", "content": {"keywords": keywords}})
-
+        print({"role": "keyword generator", "content": {"keywords": keywords}})
         return keywords
 
     def executeRAG(self,keywords):
         #TODO:根据keywords从数据库中获取结果.
-        pass
+        return None
 
-    def bulid_question(self,rag_context,followup):
+    def bulid_question(self,rag_context):
         historical_context=self.collect_historical_context()
         prompt4asking=f"""
-        你是一位专业的面试官，现在你面对着一个面试{self.targetjob}的面试者。
-        本轮{followup}追问轮次。（追问轮次需要依据）
-        请你根据之前对面试者的了解，综合职位的专业要求，向面试者提供问题。
-        你的问题会经过数据库的查找与匹配来增强你的专业性。
         历史上下文：
         {historical_context}
         你必须优先参考下面检索到的资料（如果有）：
         {rag_context}
-        请你以
+        
+        你是一位专业的面试官，现在你面对着一个面试{self.targetjob}的面试者。
+        请你严格遵守如下格式，对面试者进行适当的提问。
         </question>问题</question>
         </answer>答案</answer>
-        的格式返回你的问题和答案。它们会交由其他的智能体评判。
+        请你根据之前对面试者的了解，综合职位的专业要求，向面试者提供问题。
+        是否追问由上文历史决定。
         """
         raw = self.llm.execute(prompt4asking)
 
@@ -178,27 +183,17 @@ class Interviewer:
         print("关键词:",result)
         return result
 
-    def senmantic_analysis(self):
+    def senmantic_analysis(self,question,true_qa_ans=None):
         """
         #2 初步：语音转文本（Whisper），结果写入 context。
         完整「语义打分」可在有 InterviewContext / 题目文本时再接入 self.semantic.evaluate。
         """
         path = self._last_answer_audio
-        if not path:
-            return
-        p = Path(path)
-        if not p.is_file():
-            return
-        text = self.stt.transcribe(str(p))
-        if not isinstance(self.context, list):
-            self.context = []
-        self.context.append(
-            {
-                "role": "semantic analyser",
-                "content": {"transcript": text, "audio_path": str(p)},
-            }
-        )
-        print("转译内容:",text)
+        ans1,ans2=SemanticAnalysis(path, question, true_qa_ans)
+        self.context.append(ans1)
+        print("转译结果",ans1)
+        self.context.append(ans2)
+        print("分析结果",ans2)
 
     def emotional_analysis(self):
         #TODO:分析用户原声中的情感倾向（#3内容）
@@ -215,7 +210,7 @@ class Interviewer:
         raw_rag=self.executeRAG(keyword)
         #TODO: 将结果后处理，得到字符串形式的rag_context
         rag_context=raw_rag
-        roundinput=self.bulid_question(rag_context, "")
+        roundinput=self.bulid_question(rag_context)
         """获取到本轮需要的问题和答案"""
         question=roundinput["question"]
         answer=roundinput["answer"]
@@ -231,7 +226,7 @@ class Interviewer:
         """获取用户原声。"""
 
         """将【回答内容】和【专业性/清晰性报告】写入上下文context"""
-        self.senmantic_analysis()
+        self.senmantic_analysis(question,answer)
 
         """将【回答的情感倾向】写入上下文context"""
         self.emotional_analysis()
@@ -381,13 +376,13 @@ class Interviewer:
         )
         """获取用户回答。"""
         """将【回答内容】和【专业性/清晰性报告】写入上下文context"""
-        self.senmantic_analysis()
+        self.senmantic_analysis("请你介绍一下自己。","我是某大学应届毕业生，xxx专业毕业，曾获xxx奖项与荣誉，具有xxx经历，xxx能力较为出色。")
         print("语义分析完成")
         """将【回答的情感倾向】写入上下文context"""
         self.emotional_analysis()
         for i in range(0,2):
             self.new_round()
-            #进行固定5轮的提问。
+            #进行固定2轮的提问。
             #TODO：【加分项】在此处可以考虑增加”面试节奏控制“？
             #TODO：可考虑增加【追问不算轮数】的机制。
 

@@ -9,7 +9,6 @@ def _truncate_text(text: str, max_chars: int) -> str:
     return text if len(text) <= max_chars else text[-max_chars:]
 
 
-DEFAULT_MAX_TOKENS = 1000
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_TOP_P = 0.95
 DEFAULT_NUM_COMPLETIONS = 1
@@ -22,7 +21,6 @@ def chat_with_ollama(
     userprompt: str,
     stream: bool,
     *,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
     temperature: float = DEFAULT_TEMPERATURE,
     top_p: float = DEFAULT_TOP_P,
     num_completions: int = DEFAULT_NUM_COMPLETIONS,
@@ -41,7 +39,6 @@ def chat_with_ollama(
             options={
                 "temperature": temperature,
                 "top_p": top_p,
-                "num_predict": max_tokens,
             },
         )
         chunks = []
@@ -66,7 +63,6 @@ def chat_with_ollama(
         options={
             "temperature": temperature,
             "top_p": top_p,
-            "num_predict": max_tokens,
         },
     )
 

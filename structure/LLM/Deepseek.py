@@ -3,19 +3,12 @@ import os
 from openai import OpenAI
 
 
-DEFAULT_MAX_TOKENS = 1000
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_TOP_P = 0.95
 DEFAULT_NUM_COMPLETIONS = 1
 DEFAULT_MAX_INPUT_CHARS = 12000
 
 
-def _truncate_text(text: str, max_chars: int) -> str:
-    if max_chars is None or max_chars <= 0:
-        return text or ""
-    if text is None:
-        return ""
-    return text if len(text) <= max_chars else text[-max_chars:]
 
 
 def chat_with_deepseek(
@@ -24,7 +17,6 @@ def chat_with_deepseek(
     *,
     model: str = "deepseek-reasoner",
     stream: bool = False,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
     temperature: float = DEFAULT_TEMPERATURE,
     top_p: float = DEFAULT_TOP_P,
     num_completions: int = DEFAULT_NUM_COMPLETIONS,
@@ -36,8 +28,6 @@ def chat_with_deepseek(
 
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
 
-    systemprompt = _truncate_text(systemprompt, max_input_chars)
-    userprompt = _truncate_text(userprompt, max_input_chars)
 
     if stream:
         full_content = ""
@@ -48,7 +38,6 @@ def chat_with_deepseek(
                 {"role": "user", "content": userprompt},
             ],
             stream=True,
-            max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
         )
@@ -70,7 +59,6 @@ def chat_with_deepseek(
             {"role": "user", "content": userprompt},
         ],
         stream=False,
-        max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
         n=num_completions,
