@@ -15,6 +15,36 @@ ffmpeg_dir = script_dir / "ffmpeg"
 ffmpeg_bin = ffmpeg_dir / "bin"
 
 # 检查 FFmpeg 是否存在，如果不存在则自动下载
+if not (ffmpeg_bin / "ffmpeg.exe").exists():
+    print(f"FFmpeg 未找到，正在下载到: {ffmpeg_bin}")
+    import urllib.request
+    import zipfile
+    import shutil
+
+    ffmpeg_dir.mkdir(parents=True, exist_ok=True)
+
+    # 下载 FFmpeg
+    url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+    zip_path = ffmpeg_dir / "ffmpeg.zip"
+
+    try:
+        urllib.request.urlretrieve(url, zip_path)
+        print("下载完成，正在解压...")
+
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(ffmpeg_dir)
+
+        # 移动 bin 目录到正确位置
+        extracted = list(ffmpeg_dir.glob("ffmpeg-*"))[0]
+        if not ffmpeg_bin.exists():
+            shutil.move(extracted / "bin", ffmpeg_bin.parent)
+            shutil.rmtree(extracted)
+
+        zip_path.unlink()
+        print(f"FFmpeg 安装完成: {ffmpeg_bin}")
+    except Exception as e:
+        print(f"FFmpeg 自动下载失败: {e}")
+        print("请手动下载并解压到: {ffmpeg_bin.parent}")
 
 # 将 FFmpeg 路径添加到当前进程的 PATH（必须在导入 funasr 之前）
 os.environ['PATH'] = str(ffmpeg_bin) + os.pathsep + os.environ.get('PATH', '')
