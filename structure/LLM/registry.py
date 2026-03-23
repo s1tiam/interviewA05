@@ -7,6 +7,7 @@ LLM 后端注册表：按名称选择 OpenAI / Ollama / DeepSeek，统一暴露 
 """
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional
 
@@ -66,7 +67,7 @@ def _call_openai(model: str, system: str, user: str, **kw: Any) -> str:
 @dataclass
 class LLMClient:
     """
-    与 Interviewer 兼容：提供 execute(prompt: str) -> str。
+    与 Interviewer 兼容：提供 execute(prompt: str, systemprompt: Optional[str] = None) -> str。
     """
 
     backend: str = DEFAULT_LLM_BACKEND
@@ -79,19 +80,42 @@ class LLMClient:
         if self.model is None:
             self.model = DEFAULT_MODELS.get(self.backend, DEFAULT_MODELS[DEFAULT_LLM_BACKEND])
 
-    def execute(self, prompt: str) -> str:
-        """单轮对话：user = prompt。"""
+    def execute(self, prompt: str, *, systemprompt: Optional[str] = None) -> str:
+        """单轮对话：user = prompt；可选 systemprompt 用于覆盖本次 system 提示。"""
         user = (prompt or "").strip()
         if not user:
             return ""
 
+        sp = self.system_prompt if systemprompt is None else systemprompt
+
         if self.backend in _CUSTOM_BACKENDS:
-            return _CUSTOM_BACKENDS[self.backend](user, **self.extra)
+            fn = _CUSTOM_BACKENDS[self.backend]
+            if systemprompt is None:
+                # 保持向后兼容：旧的自定义后端只收 user_prompt + extra
+                return fn(user, **self.extra)
+
+            # 仅当用户显式传入 systemprompt 时，才尽量把它注入给自定义后端。
+            # 若自定义后端不接受 systemprompt，就退回到旧行为。
+            try:
+                sig = inspect.signature(fn)
+                params = sig.parameters
+                has_kwargs = any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+                )
+                if has_kwargs:
+                    kw = dict(self.extra)
+                    kw.setdefault("systemprompt", sp)
+                    return fn(user, **kw)
+                if "systemprompt" in params:
+                    return fn(user, systemprompt=sp, **self.extra)
+            except (TypeError, ValueError):
+                pass
+            return fn(user, **self.extra)
 
         if self.backend == "ollama":
             return chat_with_ollama(
                 self.model or DEFAULT_MODELS["ollama"],
-                self.system_prompt,
+                sp,
                 user,
                 False,
                 temperature=float(self.extra.get("temperature", OL_TEMP)),
@@ -103,7 +127,7 @@ class LLMClient:
         if self.backend == "openai":
             return _call_openai(
                 self.model or DEFAULT_MODELS["openai"],
-                self.system_prompt,
+                sp,
                 user,
                 **self.extra,
             )
@@ -111,7 +135,7 @@ class LLMClient:
         if self.backend == "deepseek":
             return chat_with_deepseek(
                 user,
-                systemprompt=self.system_prompt,
+                systemprompt=sp,
                 model=self.model or DEFAULT_MODELS["deepseek"],
                 stream=False,
                 temperature=float(self.extra.get("temperature", DS_TEMP)),
