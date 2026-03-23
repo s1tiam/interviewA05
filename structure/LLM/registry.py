@@ -80,7 +80,7 @@ class LLMClient:
         if self.model is None:
             self.model = DEFAULT_MODELS.get(self.backend, DEFAULT_MODELS[DEFAULT_LLM_BACKEND])
 
-    def execute(self, prompt: str, *, systemprompt: Optional[str] = None) -> str:
+    def execute(self, prompt: str, systemprompt: Optional[str] = None) -> str:
         """单轮对话：user = prompt；可选 systemprompt 用于覆盖本次 system 提示。"""
         user = (prompt or "").strip()
         if not user:

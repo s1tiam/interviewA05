@@ -59,16 +59,14 @@ project_root = os.path.dirname(structure_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from structure.LLM.Deepseek import chat_with_deepseek
+from structure.LLM.registry import get_llm
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ... 后续代码保持不变 ...
 # 运行示例: python structure/Semantic/RecordToText.py
 WSPrompt = (
-    """你是一位专业的AI面试官评估专家。请根据候选人的回答，从以下四个维度进行量化评分（每个维度满分100分），并输出纯字符串结果。
-
+"""
 ### 面试问题
 {question}
 
@@ -77,6 +75,11 @@ WSPrompt = (
 
 ### 标准参考答案
 {true_qa_ans}
+
+"""
+)
+systemprompt="""
+你是一位专业的AI面试官评估专家。请根据候选人的回答，从以下四个维度进行量化评分（每个维度满分100分），并输出纯字符串结果。
 ### 评分维度说明
 
 请根据以下四项评分标准对回答进行评分，每一项均分为四档，请严格按照档位对应的评分要求进行评判：
@@ -113,7 +116,6 @@ WSPrompt = (
   summary: 一句话总结
   建议追问：若有得分低于60的项目或者得分高于85的项目，给出你的一个建议追问问题，问题必须紧扣回答，不要偏离主题。若无，则此处回复“无，下一个问题”
 """
-)
 
 _asr_model_cache = {}
 
@@ -189,11 +191,13 @@ def build_wait_send_text(WSPrompt, question, user_ans, true_qa_ans=None):
     tqa = true_qa_ans if true_qa_ans is not None else ""
     return WSPrompt.format(question=question, answer=user_ans, true_qa_ans=tqa)
 
-def SemanticAnalysis(wav_path, question, true_qa_ans=None):
+def RecordtoText(wav_path):
     user_ans = run_funasr(wav_path)
+    return user_ans
 
+
+def SemanticAnalysis(llm,user_ans, question, true_qa_ans=None ):
     wait_send_text = build_wait_send_text(WSPrompt, question, user_ans, true_qa_ans)
-
     system_prompt = """你是面试评估专家，请严格按照以下格式输出评分结果，必须包含所有四项：
 
     内容相关性: score1: [0-100的整数]
@@ -208,10 +212,8 @@ def SemanticAnalysis(wav_path, question, true_qa_ans=None):
     - 结构清晰性权重: 0.2
     - 完整性权重: 0.25
     - 语言专业性权重: 0.25"""
-    try:
-        response = chat_with_deepseek(wait_send_text, system_prompt)
-    except Exception:
-        response = ""
+    system_prompt+=systemprompt
+    response = llm.execute(wait_send_text, systemprompt=system_prompt)
     
     # 权重配置（可直接修改）
     weights = {
@@ -250,15 +252,14 @@ def SemanticAnalysis(wav_path, question, true_qa_ans=None):
     if all(v is not None for v in scores.values()):
         weighted_sum = sum(scores[key] * weights[key] for key in scores.keys())
         score = round(weighted_sum)
-    result={"role":"interviewee","content":user_ans}
     result2={"role":"semantic analyst","content":response,"score":score}
-    print(result)
     print(result2)
-
-    return result,result2
+    return result2
 
 if __name__=="__main__":
-    path=r"""E:\D\interviewA05\data\records\tst_20260322_224553.wav"""
-    ans1,ans2=SemanticAnalysis(path,"简单介绍一下自己。")
+    path=r"""E:\D\interviewA05\data\records\answer_20260323_175756.wav"""
+    ans1=RecordtoText(path)
+    print("转译完成。",ans1)
+    llm=get_llm(llmname="deepseek")
+    ans2=SemanticAnalysis(llm,ans1,"简单介绍一下自己。")
     print(ans1)
-    print(ans2)

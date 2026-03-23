@@ -2,16 +2,46 @@ from __future__ import annotations
 
 #from encodings.punycode import selective_find
 from pathlib import Path
+import asyncio
 from statistics import mean
+import threading
 from typing import Any, Callable, Sequence
 import re
-from .LLM.registry import LLMClient, get_llm
-from .paths import DEFAULT_FINAL_REPORT_PATH, DEFAULT_RECORDS_DIR, USER_REPORT_DIR, ensure_data_dirs
-from .reader import read_aloud
-from .stt_whisper import WhisperSTT
-from .audio_recorder import is_round_finished as audio_round_finished
-from .audio_recorder import record_until_silence
-from structure.Semantic.RecordToText import SemanticAnalysis
+import sys
+from .Emotion.EmotionEvaluator import EmotionEvaluator
+
+# 允许两种运行方式：
+# 1) 作为包模块运行（main.py 等正常调用）
+# 2) 直接执行脚本（python structure/Interviewer.py），此时相对导入会失败
+try:
+    from .LLM.registry import LLMClient, get_llm
+    from .paths import (
+        DEFAULT_FINAL_REPORT_PATH,
+        DEFAULT_RECORDS_DIR,
+        USER_REPORT_DIR,
+        ensure_data_dirs,
+    )
+    from .reader import read_aloud
+    from .stt_whisper import WhisperSTT
+    from .audio_recorder import is_round_finished as audio_round_finished
+    from .audio_recorder import record_until_silence
+except ImportError:
+    _ROOT = Path(__file__).resolve().parent.parent
+    if str(_ROOT) not in sys.path:
+        sys.path.insert(0, str(_ROOT))
+
+    from structure.LLM.registry import LLMClient, get_llm
+    from structure.paths import (
+        DEFAULT_FINAL_REPORT_PATH,
+        DEFAULT_RECORDS_DIR,
+        USER_REPORT_DIR,
+        ensure_data_dirs,
+    )
+    from structure.reader import read_aloud
+    from structure.stt_whisper import WhisperSTT
+    from structure.audio_recorder import is_round_finished as audio_round_finished
+    from structure.audio_recorder import record_until_silence
+from structure.Semantic.RecordToText import SemanticAnalysis,RecordtoText
 class Interviewer:
     """
     第4部分：结构驱动器（interviewer）
@@ -32,8 +62,6 @@ class Interviewer:
         llm: LLMClient | Any | None = None,
         llm_backend: str = "deepseek",
         llm_model: str | None = None,
-        keyword_generator: Any | None = None,
-        question_generator: Any | None = None,
         target_job: str = "目标岗位",
         rag_top_k: int = 3,
     ) -> None:
@@ -49,10 +77,6 @@ class Interviewer:
 
         if llm is not None:
             self.llm = llm
-        elif keyword_generator is not None:
-            self.llm = keyword_generator
-        elif question_generator is not None:
-            self.llm = question_generator
         else:
             self.llm = get_llm(llm_backend, model=llm_model)
         """统一 LLM 入口（来自 LLM/registry 或兼容旧 execute 接口）"""
@@ -71,6 +95,8 @@ class Interviewer:
         """
         self._last_answer_audio: str | None = None
         """上一轮用户回答录音路径（供 STT / 情感分析使用）"""
+        self._context_lock = threading.Lock()
+        self.emotion = emotion_evaluator if emotion_evaluator is not None else EmotionEvaluator()
         ensure_data_dirs()
 
     def get_sound(
@@ -130,15 +156,15 @@ class Interviewer:
         #TODO:需要传递一些[追问]的参数：如果你要使用大模型判断是否要对用户的回应进行追问，尝试使它返回</Followup>并解析。
 
         prompt = f"""
-            你是一位专业的面试官，现在你面对着一个面试{self.targetjob}的面试者。
             交流历史:{history_text}
+            """
+        systemprompt="""你是一位专业的面试官，现在你面对着一个面试{self.targetjob}的面试者。
             请根据上下文内容,以关键词形式给出你将要向考察者提问的问题的知识点/关键点，仅给出几个词，不要整个句子。
             只允许使用以下格式输出你的查询意图:
             </keyword>词1,词2,词3</keyword>
-            "请严格按 </keyword>...</keyword> 返回，不要输出额外解释。"
-            """
+            "请严格按 </keyword>...</keyword> 返回，不要输出额外解释。"""
 
-        raw = self.llm.execute(prompt)
+        raw = self.llm.execute(prompt,systemprompt=systemprompt)
 
         keyword_match = re.search(r"</keyword>(.*?)</keyword>", raw, flags=re.IGNORECASE | re.DOTALL)
 
@@ -156,23 +182,25 @@ class Interviewer:
 
     def bulid_question(self,rag_context):
         historical_context=self.collect_historical_context()
-        prompt4asking=f"""
+        prompt=f"""
         历史上下文：
         {historical_context}
         你必须优先参考下面检索到的资料（如果有）：
         {rag_context}
-        
+        """
+
+        systemprompt=f"""
         你是一位专业的面试官，现在你面对着一个面试{self.targetjob}的面试者。
         请你严格遵守如下格式，对面试者进行适当的提问。
-        </question>问题</question>
-        </answer>答案</answer>
+        <question>问题</question>
+        <answer>答案</answer>
         请你根据之前对面试者的了解，综合职位的专业要求，向面试者提供问题。
         是否追问由上文历史决定。
         """
-        raw = self.llm.execute(prompt4asking)
-
-        question_match = re.search(r"</question>(.*?)</question>", raw, flags=re.IGNORECASE | re.DOTALL)
-        answer_match = re.search(r"</answer>(.*?)</answer>", raw, flags=re.IGNORECASE | re.DOTALL)
+        raw = self.llm.execute(prompt,systemprompt=systemprompt)
+        print(raw)
+        question_match = re.search(r"<question>(.*?)</question>", raw, flags=re.IGNORECASE | re.DOTALL)
+        answer_match = re.search(r"<answer>(.*?)</answer>", raw, flags=re.IGNORECASE | re.DOTALL)
         question = question_match.group(1).strip() if question_match else ""
         answer = answer_match.group(1).strip() if answer_match else ""
 
@@ -180,24 +208,54 @@ class Interviewer:
         if not isinstance(self.context, list):
             self.context = []
         self.context.append({"role": "question generator", "content": result})
-        print("关键词:",result)
         return result
 
-    def senmantic_analysis(self,question,true_qa_ans=None):
+    def Recordtransforming(self):
+        path = self._last_answer_audio
+        ans=RecordtoText(path)
+        ans={"role":"interviewee","content":ans}
+        self.context.append(ans)
+        print("转译结果:",ans)
+        return ans
+
+    def senmantic_analysis(self,ans,question,true_qa_ans=None):
+        ans2=SemanticAnalysis(self.llm,ans,question, true_qa_ans)
+        with self._context_lock:
+            self.context.append(ans2)
+        print("分析结果:",ans2)
+
+    def emotional_analysis(self,ans):
+        #TODO:分析用户原声中的情感倾向（#3内容）
         """
-        #2 初步：语音转文本（Whisper），结果写入 context。
-        完整「语义打分」可在有 InterviewContext / 题目文本时再接入 self.semantic.evaluate。
+            分析用户原声中的情感倾向（#3内容）
+            - 从context中获取语义分析结果中的转录文本
+            - 使用EmotionEvaluator分析音频的情感特征
+            - 将分析结果写入context
         """
         path = self._last_answer_audio
-        ans1,ans2=SemanticAnalysis(path, question, true_qa_ans)
-        self.context.append(ans1)
-        print("转译结果",ans1)
-        self.context.append(ans2)
-        print("分析结果",ans2)
+        if not path:
+            return
+        p = Path(path)
+        if not p.is_file():
+            return
 
-    def emotional_analysis(self):
-        #TODO:分析用户原声中的情感倾向（#3内容）
-        pass
+        # 从context中获取转录文本（先做快照，避免并发写入导致迭代异常）
+        transcript = ans
+
+        # 使用EmotionEvaluator分析情感
+        emotion_result = self.emotion.evaluate(str(p), transcript)
+
+        # 将情感分析结果写入context
+        with self._context_lock:
+            if not isinstance(self.context, list):
+                self.context = []
+            self.context.append(
+                {
+                    "role": "emotional analyser",
+                    "content": emotion_result,
+                }
+            )
+        print("情感分析结果:", emotion_result)
 
     def reader(self, question: str) -> None:
         """Windows 下朗读文本（系统 TTS，见 tts_windows.read_aloud）。"""
@@ -224,12 +282,17 @@ class Interviewer:
             output_format="wav",
         )
         """获取用户原声。"""
-
+        user_ans=self.Recordtransforming()
         """将【回答内容】和【专业性/清晰性报告】写入上下文context"""
-        self.senmantic_analysis(question,answer)
-
         """将【回答的情感倾向】写入上下文context"""
-        self.emotional_analysis()
+        async def _run_in_parallel() -> None:
+            await asyncio.gather(
+                asyncio.to_thread(self.senmantic_analysis, user_ans, question, answer),
+                asyncio.to_thread(self.emotional_analysis,user_ans["content"]),
+            )
+
+        # 语义分析（LLM）与情感分析（EmotionEvaluator）可并行跑，减少总耗时
+        asyncio.run(_run_in_parallel())
 
     def build_final_report(
         self,
@@ -376,10 +439,16 @@ class Interviewer:
         )
         """获取用户回答。"""
         """将【回答内容】和【专业性/清晰性报告】写入上下文context"""
-        self.senmantic_analysis("请你介绍一下自己。","我是某大学应届毕业生，xxx专业毕业，曾获xxx奖项与荣誉，具有xxx经历，xxx能力较为出色。")
-        print("语义分析完成")
-        """将【回答的情感倾向】写入上下文context"""
-        self.emotional_analysis()
+        user_ans=self.Recordtransforming()
+        async def _run_in_parallel() -> None:
+            await asyncio.gather(
+                asyncio.to_thread(self.senmantic_analysis, user_ans, "请你介绍一下自己","我是某大学应届毕业生，xxx专业毕业，曾获xxx奖项与荣誉，具有xxx经历，xxx能力较为出色。"),
+                asyncio.to_thread(self.emotional_analysis,user_ans["content"]),
+            )
+
+        # 语义分析（LLM）与情感分析（EmotionEvaluator）可并行跑，减少总耗时
+        asyncio.run(_run_in_parallel())
+
         for i in range(0,2):
             self.new_round()
             #进行固定2轮的提问。
