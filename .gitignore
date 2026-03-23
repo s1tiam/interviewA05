@@ -1,0 +1,8 @@
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 模型缓存（较大，不要提交）
+models_cache/

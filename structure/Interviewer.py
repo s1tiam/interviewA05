@@ -7,41 +7,15 @@ from statistics import mean
 import threading
 from typing import Any, Callable, Sequence
 import re
-import sys
+from .LLM.registry import LLMClient, get_llm
+from .paths import DEFAULT_FINAL_REPORT_PATH, DEFAULT_RECORDS_DIR, USER_REPORT_DIR, ensure_data_dirs
+from .reader import read_aloud
+from .stt_whisper import WhisperSTT
+from .audio_recorder import is_round_finished as audio_round_finished
+from .audio_recorder import record_until_silence
 from .Emotion.EmotionEvaluator import EmotionEvaluator
+from structure.Semantic.RecordToText import SemanticAnalysis
 
-# 允许两种运行方式：
-# 1) 作为包模块运行（main.py 等正常调用）
-# 2) 直接执行脚本（python structure/Interviewer.py），此时相对导入会失败
-try:
-    from .LLM.registry import LLMClient, get_llm
-    from .paths import (
-        DEFAULT_FINAL_REPORT_PATH,
-        DEFAULT_RECORDS_DIR,
-        USER_REPORT_DIR,
-        ensure_data_dirs,
-    )
-    from .reader import read_aloud
-    from .stt_whisper import WhisperSTT
-    from .audio_recorder import is_round_finished as audio_round_finished
-    from .audio_recorder import record_until_silence
-except ImportError:
-    _ROOT = Path(__file__).resolve().parent.parent
-    if str(_ROOT) not in sys.path:
-        sys.path.insert(0, str(_ROOT))
-
-    from structure.LLM.registry import LLMClient, get_llm
-    from structure.paths import (
-        DEFAULT_FINAL_REPORT_PATH,
-        DEFAULT_RECORDS_DIR,
-        USER_REPORT_DIR,
-        ensure_data_dirs,
-    )
-    from structure.reader import read_aloud
-    from structure.stt_whisper import WhisperSTT
-    from structure.audio_recorder import is_round_finished as audio_round_finished
-    from structure.audio_recorder import record_until_silence
-from structure.Semantic.RecordToText import SemanticAnalysis,RecordtoText
 class Interviewer:
     """
     第4部分：结构驱动器（interviewer）
@@ -70,7 +44,7 @@ class Interviewer:
 
         self.semantic = semantic_evaluator
         """2部分工具：语音转字符串"""
-        self.emotion = emotion_evaluator
+        self.emotion = emotion_evaluator if emotion_evaluator is not None else EmotionEvaluator()
         """3部分工具：语义分析，产生[本问题的]情感分析报告"""
 
         self.rag_retriever = rag_retriever
