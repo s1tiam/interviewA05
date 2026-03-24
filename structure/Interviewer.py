@@ -15,6 +15,7 @@ from .audio_recorder import is_round_finished as audio_round_finished
 from .audio_recorder import record_until_silence
 from .Emotion.EmotionEvaluator import EmotionEvaluator
 from structure.Semantic.RecordToText import SemanticAnalysis
+from structure.Semantic.RecordToText import RecordtoText
 
 class Interviewer:
     """

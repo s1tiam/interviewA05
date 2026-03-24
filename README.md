@@ -28,58 +28,97 @@
 ## 技术栈
 
 ### 后端
-- Node.js + Express
-- OpenAI API (用于对话管理和内容分析)
-- 本地文件存储 (题库和知识库)
+- **Python + FastAPI**：提供现代、高性能的API服务
+- **Node.js + Express**：传统后端服务
+- **OpenAI API**：用于对话管理和内容分析
+- **本地 Whisper**：用于语音转文字
+- **FunASR**：用于语音识别
+- **Transformers**：用于情感分析（superb/wav2vec2-base-superb-er模型）
+- **本地文件存储**：题库和知识库
 
 ### 前端
 - HTML5 + CSS3 + JavaScript
-- Chart.js (用于生成能力成长曲线)
-- Web Speech API (用于语音识别)
+- Chart.js：用于生成能力成长曲线
+- Web Speech API：用于语音识别
 
 ## 项目结构
 
 ```
 interviewA05/
+├── app/
+│   └── main.py                  # FastAPI 后端接口
+├── CosyVoice/                   # 语音合成子项目
 ├── data/
-│   ├── interview_questions.json  # 面试题库
-│   └── knowledge_base.json       # 知识库
+│   ├── records/                 # 录音文件目录
+│   ├── userreport/              # 面试报告目录
+│   ├── interview_questions.json # 面试题库
+│   └── knowledge_base.json      # 知识库
 ├── frontend/
-│   ├── index.html                # 主页面
-│   ├── history.html              # 面试历史页面
-│   ├── improvement.html          # 能力提升页面
-│   ├── styles.css                # 样式文件
-│   ├── app.js                    # 主页面逻辑
-│   ├── history.js                # 历史页面逻辑
-│   └── improvement.js            # 提升页面逻辑
+│   ├── index.html               # 主页面
+│   ├── history.html             # 面试历史页面
+│   ├── improvement.html         # 能力提升页面
+│   ├── styles.css               # 样式文件
+│   ├── app.js                   # 主页面逻辑
+│   ├── history.js               # 历史页面逻辑
+│   └── improvement.js           # 提升页面逻辑
 ├── middleware/
-│   └── upload.js                 # 文件上传中间件
+│   └── upload.js                # 文件上传中间件
 ├── routes/
-│   ├── interview.js              # 面试相关路由
-│   └── analysis.js               # 分析相关路由
+│   ├── interview.js             # 面试相关路由
+│   └── analysis.js              # 分析相关路由
 ├── services/
-│   ├── interviewService.js       # 面试服务
-│   └── analysisService.js        # 分析服务
+│   ├── interviewService.js      # 面试服务
+│   └── analysisService.js       # 分析服务
+├── structure/
+│   ├── Emotion/
+│   │   └── EmotionEvaluator.py  # 情感分析模块
+│   ├── LLM/
+│   │   ├── BlueShirtChat.py     # BlueShirt API客户端
+│   │   ├── Deepseek.py          # Deepseek API客户端
+│   │   ├── Ollama.py            # Ollama本地LLM客户端
+│   │   ├── OpenAI.py            # OpenAI API客户端
+│   │   ├── __init__.py
+│   │   └── registry.py          # LLM客户端注册器
+│   ├── Semantic/
+│   │   ├── ffmpeg/              # FFmpeg工具
+│   │   ├── RecordToText.py      # 语音转文字模块
+│   │   └── __init__.py
+│   ├── Interviewer.py           # 面试引擎
+│   ├── __init__.py
+│   ├── audio_recorder.py        # 音频录制模块
+│   ├── models.py                # 数据模型
+│   ├── paths.py                 # 路径管理
+│   ├── reader.py                # 文本朗读模块
+│   └── stt_whisper.py           # Whisper语音转文字
 ├── test/
-│   └── test_server.js            # 测试脚本
-├── uploads/                      # 上传文件目录
-├── server.js                     # 后端服务器
-├── package.json                  # 项目配置
-├── .env                          # 环境变量
-└── README.md                     # 项目说明
+│   └── test_server.js           # 测试脚本
+├── .env                         # 环境变量
+├── .gitignore
+├── README.md                    # 项目说明
+├── main.py                      # 主入口文件
+├── package.json                 # Node.js项目配置
+├── requirements.txt             # Python依赖配置
+├── server.js                    # Node.js服务器
+└── 更新与工具日志.md           # 更新日志
 ```
 
 ## 安装与运行
 
-### 1. 安装依赖
+### 1. 安装 Node.js 依赖
 
 ```bash
 npm install
 ```
 
-### 2. 配置环境变量
+### 2. 安装 Python 依赖
 
-在`.env`文件中配置OpenAI API Key：
+```bash
+pip install -r requirements.txt
+```
+
+### 3. 配置环境变量
+
+在`.env`文件中配置相关API Key：
 
 ```
 OPENAI_API_KEY=your_openai_api_key
@@ -87,15 +126,49 @@ PORT=3001
 NODE_ENV=development
 ```
 
-### 3. 启动服务器
+### 4. 启动服务器
+
+#### 启动 Node.js 服务器
 
 ```bash
 npm start
 ```
 
-### 4. 访问系统
+#### 启动 FastAPI 服务器
 
-打开浏览器，访问 `http://localhost:3001`
+```bash
+python app/main.py
+```
+
+### 5. 访问系统
+
+- Node.js 服务：`http://localhost:3001`
+- FastAPI 服务：`http://localhost:8000`
+- FastAPI API 文档：`http://localhost:8000/docs`
+
+## API 接口说明
+
+FastAPI 后端提供以下核心接口：
+
+1. **POST /api/interview/start** - 启动面试
+   - 参数：`target_job`（目标岗位）、`llm_backend`（LLM后端）、`llm_model`（LLM模型）
+   - 返回：面试ID和目标岗位
+
+2. **POST /api/interview/next-question** - 获取下一题
+   - 参数：`interview_id`（面试ID）
+   - 返回：下一个面试问题
+
+3. **POST /api/interview/submit-answer** - 提交音频回答
+   - 参数：`interview_id`（面试ID）、`audio`（音频文件）
+   - 返回：转录文本
+
+4. **GET /api/interview/result** - 获取当前分析结果
+   - 参数：`interview_id`（面试ID）
+   - 返回：转录文本、语义分析结果、情感分析结果
+
+5. **POST /api/interview/finish** - 结束面试并生成报告
+   - 参数：`interview_id`（面试ID）
+   - 返回：面试报告内容和路径
 
 ## 使用指南
 
@@ -111,6 +184,8 @@ npm start
 - 本系统使用OpenAI API进行对话管理和内容分析，需要有效的API Key
 - 语音识别功能依赖于浏览器的Web Speech API，部分浏览器可能不支持
 - 系统会在本地存储面试历史和评估数据
+- 情感分析模块依赖于PyTorch和Transformers库
+- 语音转文字功能依赖于本地Whisper模型或FunASR
 
 ## 未来优化方向
 
