@@ -7,6 +7,7 @@ from statistics import mean
 import threading
 from typing import Any, Callable, Sequence
 import re
+import json
 from .LLM.registry import LLMClient, get_llm
 from .paths import DEFAULT_FINAL_REPORT_PATH, DEFAULT_RECORDS_DIR, USER_REPORT_DIR, ensure_data_dirs
 from .reader import read_aloud
@@ -73,6 +74,30 @@ class Interviewer:
         self._context_lock = threading.Lock()
         self.emotion = emotion_evaluator if emotion_evaluator is not None else EmotionEvaluator()
         ensure_data_dirs()
+        
+        # 加载知识库
+        self.knowledge_base = self._load_knowledge_base()
+        """加载知识库"""
+        self.current_question = None
+        """当前问题"""
+        self.current_answer = None
+        """当前问题的答案"""
+        
+    def _load_knowledge_base(self):
+        """
+        加载知识库
+        """
+        knowledge_base_path = Path("data") / "knowledge_base.json"
+        if knowledge_base_path.exists():
+            try:
+                with open(knowledge_base_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"加载知识库失败: {e}")
+                return {}
+        else:
+            print("知识库文件不存在")
+            return {}
 
     def get_sound(
         self,
@@ -151,9 +176,53 @@ class Interviewer:
         print({"role": "keyword generator", "content": {"keywords": keywords}})
         return keywords
 
-    def executeRAG(self,keywords):
-        #TODO:根据keywords从数据库中获取结果.
-        return None
+    def executeRAG(self, keywords):
+        """
+        根据关键词从知识库中检索相关内容
+        仅用于检索知识库内容，不参与出题决策
+        检索结果用于LLM生成题目时参考
+        
+        Args:
+            keywords: 关键词列表
+            
+        Returns:
+            str: 检索到的相关内容
+        """
+        if not keywords or not self.knowledge_base:
+            return ""
+        
+        # 优化岗位匹配逻辑：targetjob 包含 "java" 或 "后端" → 匹配 "java-backend"，否则匹配 "web-frontend"
+        target_job_lower = self.targetjob.lower()
+        if "java" in target_job_lower or "后端" in target_job_lower:
+            job_key = "java-backend"
+        else:
+            job_key = "web-frontend"
+        
+        # 获取对应岗位的知识库
+        job_knowledge = self.knowledge_base.get(job_key, {})
+        
+        # 收集相关内容
+        relevant_content = []
+        
+        # 搜索技术问题
+        technical_questions = job_knowledge.get("technical", [])
+        for item in technical_questions:
+            question = item.get("question", "")
+            keywords_list = item.get("keywords", [])
+            # 检查关键词是否在问题或关键词列表中
+            if any(keyword in question or keyword in keywords_list for keyword in keywords):
+                relevant_content.append(f"问题: {question}")
+                relevant_content.append(f"优秀答案: {item.get('excellent_answer', '')}")
+                # 可以添加评估标准作为参考
+                if 'evaluation_criteria' in item:
+                    relevant_content.append(f"评估标准: {item.get('evaluation_criteria', '')}")
+        
+        # 限制返回数量
+        relevant_content = relevant_content[:self.rag_top_k * 3]  # 增加返回数量，包含评估标准
+        
+        # 转换为字符串
+        rag_context = "\n".join(relevant_content)
+        return rag_context
 
     def bulid_question(self,rag_context):
         historical_context=self.collect_historical_context()
@@ -238,17 +307,40 @@ class Interviewer:
         read_aloud(question)
 
     def new_round(self):
-        keyword=self.build_keyword()
-        """根据大模型生成的关键词（格式： List[keywords]）进行数据库检索，获取rag_context字段（字符串形式）"""
-        raw_rag=self.executeRAG(keyword)
-        #TODO: 将结果后处理，得到字符串形式的rag_context
-        rag_context=raw_rag
-        roundinput=self.bulid_question(rag_context)
-        """获取到本轮需要的问题和答案"""
-        question=roundinput["question"]
-        answer=roundinput["answer"]
+        """
+        新轮次面试流程
+        1. 生成关键词
+        2. 从知识库匹配最相关题目（唯一来源）
+        3. 知识库无匹配时，才用LLM兜底生成
+        4. 保存当前题目与标准答案，用于后续语义评分
+        """
+        # 1. 生成关键词
+        keywords = self.build_keyword()
+        
+        # 2. 从知识库获取最相关的问题和答案
+        question, answer = self._get_question_from_knowledge_base(keywords)
+        
+        # 3. 如果知识库中没有找到合适的问题，使用LLM兜底生成
+        if not question:
+            # 检索知识库内容作为参考
+            rag_context = self.executeRAG(keywords)
+            # 使用LLM生成题目
+            roundinput = self.bulid_question(rag_context)
+            question = roundinput["question"]
+            answer = roundinput["answer"]
+        else:
+            # 当从知识库匹配到问题时，记录到context中
+            self.context.append({"role": "question", "content": question})
+            self.context.append({"role": "standard_answer", "content": answer})
+        
+        # 4. 保存当前问题和答案，用于后续语义评分
+        self.current_question = question
+        self.current_answer = answer
+        
+        # 朗读问题
         self.reader(question)
-        """开始录音"""
+        
+        # 开始录音
         self._last_answer_audio = self.get_sound(
             output_dir=DEFAULT_RECORDS_DIR,
             filename_prefix="answer",
@@ -256,18 +348,64 @@ class Interviewer:
             silence_duration_seconds=1.0,
             output_format="wav",
         )
-        """获取用户原声。"""
-        user_ans=self.Recordtransforming()
-        """将【回答内容】和【专业性/清晰性报告】写入上下文context"""
-        """将【回答的情感倾向】写入上下文context"""
+        
+        # 获取用户回答并转文字
+        user_ans = self.Recordtransforming()
+        
+        # 并行进行语义分析和情感分析
         async def _run_in_parallel() -> None:
             await asyncio.gather(
-                asyncio.to_thread(self.senmantic_analysis, user_ans, question, answer),
-                asyncio.to_thread(self.emotional_analysis,user_ans["content"]),
+                asyncio.to_thread(self.senmantic_analysis, user_ans["content"], question, answer),
+                asyncio.to_thread(self.emotional_analysis, user_ans["content"]),
             )
 
-        # 语义分析（LLM）与情感分析（EmotionEvaluator）可并行跑，减少总耗时
+        # 执行并行分析
         asyncio.run(_run_in_parallel())
+        
+    def _get_question_from_knowledge_base(self, keywords):
+        """
+        从知识库中获取与关键词相关的问题和答案
+        
+        Args:
+            keywords: 关键词列表
+            
+        Returns:
+            tuple: (问题, 标准答案)，如果没有匹配则返回 (None, None)
+        """
+        if not keywords or not self.knowledge_base:
+            return None, None
+        
+        # 优化岗位匹配逻辑：targetjob 包含 "java" 或 "后端" → 匹配 "java-backend"，否则匹配 "web-frontend"
+        target_job_lower = self.targetjob.lower()
+        if "java" in target_job_lower or "后端" in target_job_lower:
+            job_key = "java-backend"
+        else:
+            job_key = "web-frontend"
+        
+        # 获取对应岗位的知识库
+        job_knowledge = self.knowledge_base.get(job_key, {})
+        
+        # 获取技术问题列表
+        technical_questions = job_knowledge.get("technical", [])
+        
+        # 按关键词匹配度排序
+        matched_answers = []
+        for item in technical_questions:
+            question = item.get("question", "")
+            keywords_list = item.get("keywords", [])
+            # 计算匹配度：关键词在问题或关键词列表中出现的次数
+            match_count = sum(1 for keyword in keywords if keyword in question or keyword in keywords_list)
+            if match_count > 0:
+                # 提取标准答案
+                excellent_answer = item.get("excellent_answer", "")
+                matched_answers.append((match_count, question, excellent_answer))
+        
+        # 按匹配度排序，返回最匹配的问题和答案
+        if matched_answers:
+            matched_answers.sort(key=lambda x: x[0], reverse=True)
+            return matched_answers[0][1], matched_answers[0][2]
+        
+        return None, None
 
     def build_final_report(
         self,
@@ -417,7 +555,7 @@ class Interviewer:
         user_ans=self.Recordtransforming()
         async def _run_in_parallel() -> None:
             await asyncio.gather(
-                asyncio.to_thread(self.senmantic_analysis, user_ans, "请你介绍一下自己","我是某大学应届毕业生，xxx专业毕业，曾获xxx奖项与荣誉，具有xxx经历，xxx能力较为出色。"),
+                asyncio.to_thread(self.senmantic_analysis, user_ans["content"], "请你介绍一下自己","我是某大学应届毕业生，xxx专业毕业，曾获xxx奖项与荣誉，具有xxx经历，xxx能力较为出色。"),
                 asyncio.to_thread(self.emotional_analysis,user_ans["content"]),
             )
 
